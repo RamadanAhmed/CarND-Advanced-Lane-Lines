@@ -96,6 +96,9 @@ class LaneFinder:
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds]
 
+        out_img[lefty, leftx] = [255, 0, 0]
+        out_img[righty, rightx] = [0, 0, 255]
+
         return leftx, lefty, rightx, righty, out_img
 
     def search_around_poly(self, binary_warped, prev_left_fit, prev_right_fit):
@@ -146,30 +149,29 @@ class LaneFinder:
     def find_radius(fit, y):
         return ((1 + (2 * fit[0] * y + fit[1])**2)**(1.5)) / np.absolute(2 * fit[0])
 
-    def find_lane(self, img_shape, leftx, lefty, rightx, righty):
+    def find_lane(self, ploty, left_fit, right_fit):
 
         ym_per_pix = self.parameter_dict['ym_per_pix']
         xm_per_pix = self.parameter_dict['xm_per_pix']
         
-        left_fit_meter = self.fit_poly(leftx * xm_per_pix, lefty * ym_per_pix)
-        right_fit_meter = self.fit_poly(rightx * xm_per_pix, righty * ym_per_pix)
+        leftx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+        rightx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
-        y = img_shape[0]
+        leftx = leftx[::-1]  # Reverse to match top-to-bottom in y
+        rightx = rightx[::-1]  # Reverse to match top-to-bottom in y
+
+        left_fit_meter = self.fit_poly(leftx * xm_per_pix, ploty * ym_per_pix)
+        right_fit_meter = self.fit_poly(rightx * xm_per_pix, ploty * ym_per_pix)
+
+        y = np.max(ploty)
 
         left_radius = self.find_radius(left_fit_meter, y * ym_per_pix)
         right_radius = self.find_radius(right_fit_meter, y * ym_per_pix)
 
         return left_fit_meter, right_fit_meter, left_radius, right_radius
 
-    def plot(self, img_shape, leftx, lefty, rightx, righty, out_img):
-        out_img[lefty, leftx] = [255, 0, 0]
-        out_img[righty, rightx] = [0, 0, 255]
-
-        left_fit_pixel = self.fit_poly(leftx, lefty)
-        right_fit_pixel = self.fit_poly(rightx, righty)
-
+    def plot(self, ploty, left_fit_pixel, right_fit_pixel, out_img):
         # Generate x and y values for plotting
-        ploty = np.linspace(0, img_shape[0]-1, img_shape[0])
         ### Calc both polynomials using ploty, left_fit and right_fit ###
         left_fitx = left_fit_pixel[0]*ploty**2 + \
             left_fit_pixel[1]*ploty + left_fit_pixel[2]
@@ -185,7 +187,7 @@ class LaneFinder:
                      (xl + t, y), (255, 0, 0), int(t / 2))
             cv2.line(out_img, (xr - t, y),
                      (xr + t, y), (0, 0, 255), int(t / 2))
-        return out_img, left_fit_pixel, right_fit_pixel
+        return out_img
 
     def find_vehicle_position(self, img_shape, left_fit_pixel, right_fit_pixel):
         y = img_shape[0]
@@ -200,11 +202,15 @@ class LaneFinder:
         return vehicle_position
 
     def process_image(self, binary_warped):
-        leftx, lefty, rightx, righty, out_img = self.find_lane_pixels(
-            binary_warped)
-        left_fit_meter, right_fit_meter, left_radius, right_radius = self.find_lane(
-            binary_warped.shape, leftx, lefty, rightx, righty)
-        out_img, left_fit_pixel, right_fit_pixel = self.plot(binary_warped.shape, leftx, lefty, rightx, righty, out_img)
+        leftx, lefty, rightx, righty, out_img = self.find_lane_pixels(binary_warped)
+        
+        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
+
+        left_fit_pixel = self.fit_poly(leftx, lefty)
+        right_fit_pixel = self.fit_poly(rightx, righty)
+
+        left_fit_meter, right_fit_meter, left_radius, right_radius = self.find_lane(ploty, left_fit_pixel, right_fit_pixel)
+        out_img = self.plot(ploty, left_fit_pixel, right_fit_pixel, out_img)
         vehicle_position = self.find_vehicle_position(binary_warped.shape, left_fit_pixel, right_fit_pixel)
         
         result = {
