@@ -149,14 +149,11 @@ class LaneFinder:
     def find_radius(fit, y):
         return ((1 + (2 * fit[0] * y + fit[1])**2)**(1.5)) / np.absolute(2 * fit[0])
 
-    def find_lane(self, ploty, left_fit, right_fit):
+    def find_lane(self, ploty, leftx, rightx):
 
         ym_per_pix = self.parameter_dict['ym_per_pix']
         xm_per_pix = self.parameter_dict['xm_per_pix']
         
-        leftx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-        rightx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-
         leftx = leftx[::-1]  # Reverse to match top-to-bottom in y
         rightx = rightx[::-1]  # Reverse to match top-to-bottom in y
 
@@ -180,8 +177,8 @@ class LaneFinder:
 
         xls, xrs, ys = left_fitx.astype(np.int32), right_fitx.astype(
             np.int32), ploty.astype(np.int32)
+        
         t = 4
-
         for xl, xr, y in zip(xls, xrs, ys):
             cv2.line(out_img, (xl - t, y),
                      (xl + t, y), (255, 0, 0), int(t / 2))
@@ -209,19 +206,25 @@ class LaneFinder:
         left_fit_pixel = self.fit_poly(leftx, lefty)
         right_fit_pixel = self.fit_poly(rightx, righty)
 
-        left_fit_meter, right_fit_meter, left_radius, right_radius = self.find_lane(ploty, left_fit_pixel, right_fit_pixel)
+        leftx = left_fit_pixel[0]*ploty**2 + left_fit_pixel[1]*ploty + left_fit_pixel[2]
+        rightx = right_fit_pixel[0]*ploty**2 + right_fit_pixel[1]*ploty + right_fit_pixel[2]
+
+        left_fit_meter, right_fit_meter, left_radius, right_radius = self.find_lane(ploty, leftx, rightx)
         out_img = self.plot(ploty, left_fit_pixel, right_fit_pixel, out_img)
         vehicle_position = self.find_vehicle_position(binary_warped.shape, left_fit_pixel, right_fit_pixel)
         
         result = {
-            "image":out_img,
-            "left_fit_meter" : left_fit_meter,
-            "right_fit_meter" : right_fit_meter,
-            "left_fit_pixel" : left_fit_pixel,
-            "right_fit_pixel": right_fit_pixel,
-            "left_radius": left_radius,
-            "right_radius" : right_radius,
-            "vehicle_position" : vehicle_position
+            'image':out_img,
+            'left_fit_meter' : left_fit_meter,
+            'right_fit_meter' : right_fit_meter,
+            'left_fit_pixel' : left_fit_pixel,
+            'right_fit_pixel': right_fit_pixel,
+            'left_radius': left_radius,
+            'right_radius' : right_radius,
+            'vehicle_position' : vehicle_position,
+            'leftx' : leftx,
+            'rightx': rightx,
+            'ploty' : ploty
         }
 
         return result
