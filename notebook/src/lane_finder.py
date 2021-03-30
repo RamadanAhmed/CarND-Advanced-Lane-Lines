@@ -13,6 +13,8 @@ class LaneFinder:
 
     def __init__(self, parameter_dict) -> None:
         self.parameter_dict = parameter_dict
+        self.left_fit = None
+        self.right_fit = None
 
     @staticmethod
     def find_peak(binary_warped):
@@ -228,3 +230,32 @@ class LaneFinder:
         }
 
         return result
+    
+    def process_video(self, binary_warped):
+        leftx, lefty, rightx, righty = self.find_pixels(binary_warped)
+        
+        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
+        
+        self.left_fit = self.fit_poly(leftx, lefty)
+        self.right_fit = self.fit_poly(rightx, righty)
+
+        leftx = self.left_fit[0]*ploty**2 + self.left_fit[1]*ploty + self.left_fit[2]
+        rightx = self.right_fit[0]*ploty**2 + self.right_fit[1]*ploty + self.right_fit[2]
+
+        _, _, left_radius, right_radius = self.find_lane(ploty, leftx, rightx)
+        
+        vehicle_position = self.find_vehicle_position(binary_warped.shape, self.left_fit, self.right_fit)
+
+        result = {
+            'left_radius': left_radius,
+            'right_radius' : right_radius,
+            'vehicle_position' : vehicle_position,
+            'leftx' : leftx,
+            'rightx': rightx,
+            'ploty' : ploty
+        }
+        return result
+
+    def reset(self):
+        self.left_fit = None
+        self.right_fit = None
