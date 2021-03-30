@@ -20,6 +20,10 @@ class Visualizer:
         for i in range(per_row * per_col):
             ax[i].axis('off')
 
+    def save_images(self, prefix, imgs, imgs_name):
+        for i, img in enumerate(imgs):
+            cv2.imwrite('../output_images/{}_{}'.format(prefix, imgs_name[i]), img)
+
     def show_dotted_image(self, this_image, points, thickness=5, color=[255, 0, 255], d=15):
         image = this_image.copy()
 
